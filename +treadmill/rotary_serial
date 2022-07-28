@@ -1,0 +1,52 @@
+//http://www.hessmer.org/blog/2011/01/30/quadrature-encoder-too-fast-for-arduino-with-solution/
+#include <Servo.h>
+#include <digitalWriteFast.h>  // library for high performance reads and writes by jrraines
+// see http://www.arduino.cc/cgi-bin/yabb2/YaBB.pl?num=1267553811/0
+// and http://code.google.com/p/digitalwritefast/
+// It turns out that the regular digitalRead() calls are too slow and bring the arduino down when
+// I use them in the interrupt routines while the motor runs at full speed creating more than
+// 40000 encoder ticks per second per motor.
+// Quadrature encoder
+#define EncoderPinA 2
+#define EncoderPinB 3
+#define EncoderIsReversed
+volatile bool _EncoderBSet;
+volatile long _EncoderTicks = 0;
+char buffer[6];
+char space[] = "      ";
+String msg;
+int n;
+void setup()
+{
+  Serial.begin(115200);
+  // Quadrature encoder
+  pinMode(EncoderPinA, INPUT_PULLUP);      // sets pin A as input
+  pinMode(EncoderPinB, INPUT_PULLUP);      // sets pin B as input
+  attachInterrupt(digitalPinToInterrupt(EncoderPinA), HandleInterruptA, RISING);
+}
+void loop()
+{
+  //Just print to string on the serial line
+//    Serial.print(_EncoderTicks);
+//    Serial.print("\n");
+//  //Print into a buffer to ensure same number of digits
+  n = sprintf (buffer, "%d", _EncoderTicks); //n gives length
+  //  //prepend with 6-n to create a length 6 str
+  msg = space[0, 6 - n];
+  msg.concat(buffer);
+  Serial.print (msg);
+  Serial.print("\n");
+  delay(2);
+}
+// Interrupt service routines for the quadrature encoder
+void HandleInterruptA()
+{
+  // Test transition; since the interrupt will only fire on 'rising' we don't need to read pin A
+  _EncoderBSet = digitalReadFast(EncoderPinB);   // read the input pin
+  // and adjust counter + if A leads B
+#ifdef EncoderIsReversed
+  _EncoderTicks -= _EncoderBSet ? -1 : +1;
+#else
+  _EncoderTicks += _EncoderBSet ? -1 : +1;
+#endif
+}
